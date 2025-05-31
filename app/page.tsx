@@ -117,7 +117,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!transactionId) return;
-    const ws = new WebSocket('ws://159.89.204.161:3023/ws');
+    const ws = new WebSocket('wss://kun-sgd-1-u.run.place/ws');
     ws.onopen = () => {
       ws.send(JSON.stringify({ join: transactionId }));
       console.log('WebSocket connection established for transaction:', transactionId);
