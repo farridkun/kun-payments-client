@@ -57,6 +57,12 @@ export default function Home() {
           gross_amount: vaData.gross_amount.replaceAll('.', '').toString(),
           bank: vaData.bank,
         };
+      } else if (selectedPayment === 'qris') {
+        payload = {
+          payment_type: 'qris',
+          gross_amount: qrisData.gross_amount.replaceAll('.', '').toString(),
+          bank: 'gopay',
+        }
       } else {
         throw new Error('Invalid payment method selected');
       }
