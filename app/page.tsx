@@ -45,7 +45,7 @@ export default function Home() {
       } else if (selectedPayment === 'bank_transfer') {
         payload = {
           payment_type: 'bank_transfer',
-          gross_amount: vaData.gross_amount,
+          gross_amount: vaData.gross_amount.replaceAll('.', '').toString(),
           bank: vaData.bank,
         };
       } else {
@@ -117,7 +117,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!transactionId) return;
-    const ws = new WebSocket('ws://localhost:3023/ws');
+    const ws = new WebSocket('ws://159.89.204.161:3023/ws');
     ws.onopen = () => {
       ws.send(JSON.stringify({ join: transactionId }));
       console.log('WebSocket connection established for transaction:', transactionId);
@@ -125,6 +125,7 @@ export default function Home() {
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
+        console.log('WebSocket message received:', data);
         if (data.event === 'transaction_status') {
           if (data.status === 'Payment Accept') {
             alert('Payment was successful!');
