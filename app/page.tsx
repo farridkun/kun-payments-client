@@ -312,7 +312,7 @@ export default function Home() {
 
               <p className="text-black"><strong>Orders ID:</strong> {transactionData.order_id}</p>
               <p className="text-black"><strong>Status:</strong> {transactionData.transaction_status}</p>
-              <p className="text-black"><strong>Payment Method:</strong> {transactionData?.bank || transactionData?.qr_url ? 'QRIS' : 'Credit Card'}</p>
+              <p className="text-black"><strong>Payment Method:</strong> {transactionData?.bank ? transactionData?.bank : transactionData?.qr_url ? 'QRIS' : 'Credit Card'}</p>
               {transactionData?.va_number ? (
                 <p className="text-black"><strong>Virtual Account Number:</strong> {transactionData.va_number}</p>
               ) : <></>}
