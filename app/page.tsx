@@ -14,6 +14,10 @@ export default function Home() {
     gross_amount: '',
     bank: '',
   });
+  const [qrisData, setQrisData] = useState({
+    gross_amount: '',
+  });
+
   const [listPayment] = useState([
     {
       paymentName: 'Credit Card',
@@ -24,6 +28,11 @@ export default function Home() {
       paymentName: 'Virtual Account',
       paymentType: 'bank_transfer',
       paymentCode: 'va',
+    },
+    {
+      paymentName: 'QRIS',
+      paymentType: 'qris',
+      paymentCode: 'gopay',
     },
   ]);
   const [transactionData, setTransactionData] = useState<any>({});
@@ -125,9 +134,9 @@ export default function Home() {
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
-        console.log('WebSocket message received:', data);
         if (data.event === 'transaction_status') {
           if (data.status === 'Payment Accept') {
+            console.log('Payment accepted:', data.status);
             alert('Payment was successful!');
           }
         }
@@ -214,6 +223,35 @@ export default function Home() {
     </>
   );
 
+  const renderPaymentQris = () => (
+    <>
+      <input
+        type="text"
+        className="border border-gray-300 rounded-md p-2 mb-4 w-full max-w-xs text-black"
+        value={`Rp ${qrisData.gross_amount}`}
+        onChange={(e) => setQrisData({
+          ...qrisData,
+          gross_amount: e.target.value,
+        })}
+        placeholder="Gross Amount"
+        pattern="[0-9]*"
+        inputMode="numeric"
+        onInput={(e) => {
+          const input = e.target as HTMLInputElement;
+          input.value = input.value.replace(/[^0-9]/g, '');
+          input.value = new Intl.NumberFormat('id-ID', {
+            style: 'decimal',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          }).format(Number(input.value.replace(/[^0-9]/g, '')));
+          if (input.value === 'NaN') {
+            input.value = '';
+          }
+        }}
+      />
+    </>
+  );
+
   return (
     <div className="flex justify-center font-[family-name:var(--font-geist-sans)]">
       <main className="p-16 w-full max-w-md">
@@ -240,6 +278,7 @@ export default function Home() {
               </select>
               {selectedPayment === 'credit_card' && renderPaymentCredit()}
               {selectedPayment === 'bank_transfer' && renderPaymentVa()}
+              {selectedPayment === 'qris' && renderPaymentQris()}
 
               <button
                 className="bg-blue-500 text-white rounded-md p-2 w-full max-w-xs cursor-pointer"
@@ -253,7 +292,16 @@ export default function Home() {
           ) : (
             <div className="w-full">
               <h2 className="text-xl font-semibold mb-4 text-black">Transaction Details</h2>
-              <p className="text-black"><strong>Transaction ID:</strong> {transactionData.order_id}</p>
+              {transactionData?.actions && transactionData.actions.length > 0 && transactionData.actions[0].name === 'generate-qr-code' ? (
+                <img
+                  src={transactionData.actions[0].url}
+                  alt="QR Code"
+                  className="w-full h-auto mb-4"
+                  crossOrigin='anonymous'
+                />
+              ) : null}
+
+              <p className="text-black"><strong>Orders ID:</strong> {transactionData.order_id}</p>
               <p className="text-black"><strong>Status:</strong> {transactionData.transaction_status}</p>
               <p className="text-black"><strong>Payment Method:</strong> {transactionData?.bank ?? 'Credit Card'}</p>
               {transactionData?.va_number ? (
