@@ -142,6 +142,10 @@ export default function Home() {
         const data = JSON.parse(e.data);
         if (data.event === 'transaction_status') {
           if (data.status === 'Payment Accept') {
+            setTransactionData((prevData: any) => ({
+              ...prevData,
+              transaction_status: data.status,
+            }));
             console.log('Payment accepted:', data.status);
             alert('Payment was successful!');
           }
@@ -298,18 +302,17 @@ export default function Home() {
           ) : (
             <div className="w-full">
               <h2 className="text-xl font-semibold mb-4 text-black">Transaction Details</h2>
-              {transactionData?.actions && transactionData.actions.length > 0 && transactionData.actions[0].name === 'generate-qr-code' ? (
+              {transactionData?.qr_url && transactionData.payment_type === 'qris' ? (
                 <img
-                  src={transactionData.actions[0].url}
+                  src={transactionData?.qr_url}
                   alt="QR Code"
                   className="w-full h-auto mb-4"
-                  crossOrigin='anonymous'
                 />
               ) : null}
 
               <p className="text-black"><strong>Orders ID:</strong> {transactionData.order_id}</p>
               <p className="text-black"><strong>Status:</strong> {transactionData.transaction_status}</p>
-              <p className="text-black"><strong>Payment Method:</strong> {transactionData?.bank ?? 'Credit Card'}</p>
+              <p className="text-black"><strong>Payment Method:</strong> {transactionData?.bank || transactionData?.qr_url ? 'QRIS' : 'Credit Card'}</p>
               {transactionData?.va_number ? (
                 <p className="text-black"><strong>Virtual Account Number:</strong> {transactionData.va_number}</p>
               ) : <></>}
