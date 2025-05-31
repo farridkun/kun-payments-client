@@ -1,103 +1,280 @@
-import Image from "next/image";
+'use client';
+import React, { useState, useEffect } from 'react';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [transactionId, setTransactionId] = useState<string | null>(null);
+  const [isPayment, setIsPayment] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState('');
+  const [cardData, setCardData] = useState({
+    number: '',
+    expiry: '',
+    cvv: '',
+  });
+  const [vaData, setVaData] = useState({
+    gross_amount: '',
+    bank: '',
+  });
+  const [listPayment] = useState([
+    {
+      paymentName: 'Credit Card',
+      paymentType: 'credit_card',
+      paymentCode: 'credit_card',
+    },
+    {
+      paymentName: 'Virtual Account',
+      paymentType: 'bank_transfer',
+      paymentCode: 'va',
+    },
+  ]);
+  const [transactionData, setTransactionData] = useState<any>({});
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handlePayment = () => {
+    try {
+      setIsPayment(true);
+      let payload;
+
+      if (selectedPayment === 'credit_card') {
+        payload = {
+          payment_type: 'credit_card',
+          credit_card: {
+            number: cardData.number,
+            expiry: cardData.expiry,
+            cvv: cardData.cvv,
+          },
+        };
+      } else if (selectedPayment === 'bank_transfer') {
+        payload = {
+          payment_type: 'bank_transfer',
+          gross_amount: vaData.gross_amount,
+          bank: vaData.bank,
+        };
+      } else {
+        throw new Error('Invalid payment method selected');
+      }
+
+      fetch('https://api.farrid.dev/v1/s/kun-payments/payment/charge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (!data || !data.data || !data.data.transaction_id) {
+            throw new Error('Invalid response from server');
+          }
+
+          window.location.href = `/?t_id=${data.data.transaction_id}`;
+          console.log('Payment successful:', data);
+        })
+        .catch((error) => {
+          console.error('Payment error:', error);
+        })
+        .finally(() => {
+          setIsPayment(false);
+          setSelectedPayment('');
+          setCardData({ number: '', expiry: '', cvv: '' });
+          setVaData({ gross_amount: '', bank: '' });
+        });
+    } catch (error) {
+      console.error('Error during payment:', error);
+      alert('An error occurred. Please try again.');
+      setIsPayment(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setCardData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const t_id = params.get('t_id');
+      setTransactionId(t_id);
+
+      if (t_id) {
+        fetch(`https://api.farrid.dev/v1/s/kun-payments/payment/transactionData?transaction_id=${t_id}`)
+          .then((response) => response.json())
+          .then((data) => {
+            if (data && data.data) {
+              setTransactionData(data.data);
+            } else {
+              console.error('Invalid transaction data:', data);
+            }
+          })
+          .catch((error) => {
+            console.error('Error fetching transaction data:', error);
+          });
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!transactionId) return;
+    const ws = new WebSocket('ws://localhost:3023/ws');
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ join: transactionId }));
+      console.log('WebSocket connection established for transaction:', transactionId);
+    };
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.event === 'transaction_status') {
+          if (data.status === 'Payment Accept') {
+            alert('Payment was successful!');
+          }
+        }
+      } catch (err) {
+        console.error('WebSocket message error:', err);
+      }
+    };
+    ws.onerror = (err) => {
+      console.error('WebSocket error:', err);
+    };
+    return () => {
+      ws.close();
+    };
+  }, [transactionId]);
+
+  const renderPaymentCredit = () => (
+    <>
+      <input
+        type="text"
+        placeholder="Card Number"
+        className="border border-gray-300 rounded-md p-2 mb-4 w-full max-w-xs text-black"
+        name="number"
+        value={cardData.number}
+        onChange={handleInputChange}
+      />
+      <input
+        type="text"
+        placeholder="Card Expiry (MM/YY)"
+        className="border border-gray-300 rounded-md p-2 mb-4 w-full max-w-xs text-black"
+        name="expiry"
+        value={cardData.expiry}
+        onChange={handleInputChange}
+      />
+      <input
+        type="text"
+        placeholder="Card CVV"
+        className="border border-gray-300 rounded-md p-2 mb-4 w-full max-w-xs text-black"
+        name="cvv"
+        value={cardData.cvv}
+        onChange={handleInputChange}
+      />
+    </>
+  )
+
+  const renderPaymentVa = () => (
+    <>
+      <select
+        className="border border-gray-300 rounded-md p-2 mb-4 w-full max-w-xs text-black"
+        value={vaData.bank}
+        onChange={(e) => setVaData({
+          ...vaData,
+          bank: e.target.value,
+        })}
+      >
+        <option value="" disabled>Select Bank</option>
+        <option value="bri">BRI</option>
+        <option value="bca">BCA</option>
+        <option value="permata">Permata Bank</option>
+      </select>
+      <input
+        type="text"
+        className="border border-gray-300 rounded-md p-2 mb-4 w-full max-w-xs text-black"
+        value={`Rp ${vaData.gross_amount}`}
+        onChange={(e) => setVaData({
+          ...vaData,
+          gross_amount: e.target.value,
+        })}
+        placeholder="Gross Amount"
+        pattern="[0-9]*"
+        inputMode="numeric"
+        onInput={(e) => {
+          const input = e.target as HTMLInputElement;
+          input.value = input.value.replace(/[^0-9]/g, '');
+          input.value = new Intl.NumberFormat('id-ID', {
+            style: 'decimal',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          }).format(Number(input.value.replace(/[^0-9]/g, '')));
+          if (input.value === 'NaN') {
+            input.value = '';
+          }
+        }}
+      />
+    </>
+  );
+
+  return (
+    <div className="flex justify-center font-[family-name:var(--font-geist-sans)]">
+      <main className="p-16 w-full max-w-md">
+        <h1 className="text-3xl font-bold text-center">Kun - Payments</h1>
+        <p className="text-lg text-gray-600 pb-4 text-center">
+          Payments Integration with Midtrans
+        </p>
+        <div
+          className="flex flex-col items-center gap-4 px-8 py-6 border border-gray-300 rounded-md shadow-md bg-white"
+        >
+          {!transactionData?.order_id ? (
+            <>
+              <select
+                className="border border-gray-300 rounded-md p-2 mb-4 w-full max-w-xs text-black"
+                value={selectedPayment}
+                onChange={(e) => setSelectedPayment(e.target.value)}
+              >
+                <option value="" disabled>Select Payment Method</option>
+                {listPayment.map((payment) => (
+                  <option key={payment.paymentCode} value={payment.paymentType}>
+                    {payment.paymentName}
+                  </option>
+                ))}
+              </select>
+              {selectedPayment === 'credit_card' && renderPaymentCredit()}
+              {selectedPayment === 'bank_transfer' && renderPaymentVa()}
+
+              <button
+                className="bg-blue-500 text-white rounded-md p-2 w-full max-w-xs cursor-pointer"
+                onClick={handlePayment}
+                disabled={isPayment || !selectedPayment}
+                style={{ opacity: isPayment || !selectedPayment ? 0.5 : 1 }}
+              >
+                Pay Now
+              </button>
+            </>
+          ) : (
+            <div className="w-full">
+              <h2 className="text-xl font-semibold mb-4 text-black">Transaction Details</h2>
+              <p className="text-black"><strong>Transaction ID:</strong> {transactionData.order_id}</p>
+              <p className="text-black"><strong>Status:</strong> {transactionData.transaction_status}</p>
+              <p className="text-black"><strong>Payment Method:</strong> {transactionData?.bank ?? 'Credit Card'}</p>
+              {transactionData?.va_number ? (
+                <p className="text-black"><strong>Virtual Account Number:</strong> {transactionData.va_number}</p>
+              ) : <></>}
+              <p className="text-black"><strong>Gross Amount:</strong> Rp {transactionData.gross_amount}</p>
+              <p className="text-black"><strong>Expired at:</strong> {transactionData.expiry_time}</p>
+
+              <button
+                className="bg-blue-500 text-white rounded-md p-2 w-full max-w-xs cursor-pointer mt-4"
+                onClick={() => {
+                  setTransactionId(null);
+                  setTransactionData([]);
+                  window.location.href = '/';
+                }}
+              >
+                Create New Transaction
+              </button>
+            </div>
+          )}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
